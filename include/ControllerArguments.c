@@ -4,7 +4,7 @@
  * @version 0.1
  */
 
-#include "Arguments.h" // Header file
+#include "ControllerArguments.h" // Header file
 
 error_t parse_opt(int key, char *arg, struct argp_state *state)
 {

@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdbool.h>
-#include "Arguments.h"
+#include "ControllerArguments.h"
 
 int main(int argc, char *argv[])
 {

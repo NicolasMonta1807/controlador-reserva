@@ -8,8 +8,8 @@
  * @version 0.1
  */
 
-#ifndef _ARGUMENTS_H
-#define _ARGUMENTS_H
+#ifndef _CONTROLLERARGUMENTS_H
+#define _CONTROLLERARGUMENTS_H
 
 #include <stdlib.h> // Standard libraries
 #include <argp.h>   // Library for parsing unix-style argument
@@ -73,4 +73,4 @@ static struct argp argp = {
     .args_doc = "START_HOUR FINAL_HOUR SECONDS_HOUR TOTAL_PEOPLE PIPE_NAME",
     .doc = "Reserve Controller"};
 
-#endif // _ARGUMENTS_H
+#endif // _CONTROLLERARGUMENTS_H

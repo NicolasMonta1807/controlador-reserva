@@ -11,15 +11,13 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdbool.h>
+#include "AgentArguments.h"
 
 int main(int argc, char *argv[])
 {
   // Comprobamos el número de argumentos de entrada
-  if (argc != 2)
-  {
-    fprintf(stderr, "Error: debe especificar el pipe de comunicación\n");
-    return -1;
-  }
+  struct arguments arguments;
+  init_arguments(argc, argv, &arguments);
 
   // Obtenemos el descriptor del pipe de comunicación
   char *pipe_id = argv[1];
