@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdbool.h>
+
+#include "Datatypes.h"
 #include "AgentArguments.h"
 
 int main(int argc, char *argv[])
@@ -23,7 +25,7 @@ int main(int argc, char *argv[])
   char *pipe_id = arguments.pipeName;
 
   // Abrimos el pipe
-  int fd_escritura = open(pipe_id, O_RDONLY);
+  int fd_escritura = open(pipe_id, O_WRONLY);
 
   // Comprobamos si se ha abierto correctamente
   if (fd_escritura < 0)
@@ -32,17 +34,77 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  // Escribimos datos en el pipe
-  char mensaje[25];
-  // write(fd_escritura, mensaje, strlen(mensaje));
-
-  bool flag = true;
-  while (flag)
+  FILE *file = fopen(arguments.requestFile, "r");
+  if (file == NULL)
   {
-    read(fd_escritura, mensaje, 25);
-    printf("leí desde el pipe %s\n", mensaje);
+    printf("El archivo de solicitudes no existe.\n");
   }
 
+  struct AgentData agent;
+  strcpy(agent.agentName, arguments.agentName);
+  strcpy(agent.agentPipe, arguments.agentName);
+  agent.id = 0;
+
+  int fd_privado = open(arguments.agentName, O_RDWR);
+
+  // Comprobamos si se ha abierto correctamente
+  if (fd_privado < 0)
+  {
+    fd_privado = mkfifo(arguments.agentName, 0666);
+    if (fd_privado < 0)
+    {
+      perror("Error al abrir el pipe!!!");
+      return -1;
+    }
+  }
+  // Escribe el agente en el pipe
+  write(fd_escritura, &agent, sizeof(agent));
+  sleep(1);
+  int horaActual = 0;
+  read(fd_privado, &horaActual, sizeof(horaActual));
+  struct Family *familia = malloc(sizeof(struct Family));
+  char line[256];
+  while (fgets(line, sizeof(line), file))
+  {
+    // Divide la línea en tokens separados por comas
+    char *temp = strtok(line, ",");
+    strcpy(familia->name, temp);
+    familia->hourIn = atoi(strtok(NULL, ","));
+    familia->quantity = atoi(strtok(NULL, ","));
+
+    // Valida que la hora de reserva no sea inferior a la hora actual de simulación
+    if (familia->hourIn < horaActual)
+    {
+      continue;
+    }
+
+    // Formatea la solicitud
+
+    write(fd_privado, familia, sizeof(familia));
+    // Escribe la solicitud en el pipe
+
+    // Espera a que el proceso del controlador termine de procesar la solicitud
+    /*int status;
+    if (wait(&status) == -1)
+    {
+      perror("wait");
+      exit(1);
+    }*/
+
+    // Lee la respuesta del pipe
+    char respuesta[256];
+    if (read(fd_privado, respuesta, sizeof(respuesta)) == -1)
+    {
+      perror("read");
+      exit(1);
+    }
+
+    // Imprime la respuesta
+    printf("Respuesta: %s\n", respuesta);
+
+    // Espera 2 segundos antes de procesar la siguiente solicitud
+    sleep(2);
+  }
   // Cerramos el pipe
   // close(fd_escritura);
 
