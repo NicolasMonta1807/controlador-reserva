@@ -1,5 +1,5 @@
 GCC=gcc
-CFLAGS= -I ./include -lpthread
+CFLAGS= -I ./include -lpthread ./include/*.c
 
 PROGS = controller agent
 
