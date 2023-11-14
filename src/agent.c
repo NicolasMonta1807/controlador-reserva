@@ -17,10 +17,10 @@ int main(int argc, char *argv[])
 {
   // Comprobamos el número de argumentos de entrada
   struct arguments arguments;
-  init_arguments(argc, argv, &arguments);
+  init_agent_arguments(argc, argv, &arguments);
 
   // Obtenemos el descriptor del pipe de comunicación
-  char *pipe_id = argv[1];
+  char *pipe_id = arguments.pipeName;
 
   // Abrimos el pipe
   int fd_escritura = open(pipe_id, O_RDONLY);

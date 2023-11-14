@@ -48,7 +48,7 @@ static struct argp_option options[] = {
  * @param state state of the argument parser (given by argp.h)
  * @return error_t error code if the argument is invalid or 0 if it is valid
  */
-error_t parse_opt(int key, char *arg, struct argp_state *state);
+error_t parse_agent_opt(int key, char *arg, struct argp_state *state);
 
 /**
  * @brief Parses and validates all the command line arguments and set them to the given structure
@@ -57,7 +57,7 @@ error_t parse_opt(int key, char *arg, struct argp_state *state);
  * @param arguments structure to set the arguments
  * @return void
  */
-void init_arguments(int argc, char *argv[], struct arguments *arguments);
+void init_agent_arguments(int argc, char *argv[], struct arguments *arguments);
 
 /**
  * @brief usable argp structure for parsing and validating command line arguments as stated in the arpg library
@@ -65,7 +65,7 @@ void init_arguments(int argc, char *argv[], struct arguments *arguments);
  */
 static struct argp argp = {
     .options = options,
-    .parser = parse_opt,
+    .parser = parse_agent_opt,
     .args_doc = "AGENT_NAME REQUEST_FILE PIPE_NAME",
     .doc = "Reserve Controller"};
 

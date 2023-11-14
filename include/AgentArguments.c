@@ -6,17 +6,17 @@
 
 #include "AgentArguments.h" // Header file
 
-error_t parse_opt(int key, char *arg, struct argp_state *state)
+error_t parse_agent_opt(int key, char *arg, struct argp_state *state)
 {
     struct arguments *arguments = state->input;
 
     switch (key)
     {
     case 's':
-        arguments->agentName = atoi(arg);
+        arguments->agentName = arg;
         break;
     case 'a':
-        arguments->requestFile = atoi(arg);
+        arguments->requestFile = arg;
         break;
     case 'p':
         arguments->pipeName = arg;
@@ -28,7 +28,7 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
     return 0;
 }
 
-void init_arguments(int argc, char *argv[], struct arguments *arguments)
+void init_agent_arguments(int argc, char *argv[], struct arguments *arguments)
 {
     arguments->agentName = NULL;
     arguments->requestFile = NULL;
