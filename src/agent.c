@@ -74,11 +74,10 @@ int main(int argc, char *argv[])
 
     // Valida que la hora de reserva no sea inferior a la hora actual de simulación
     if (familia->hourIn < horaActual)
-    {
       continue;
-    }
 
     // Formatea la solicitud
+    printf("Nueva Familia: %s - %d\n", familia->name, familia->quantity);
 
     write(fd_privado, familia, sizeof(familia));
     // Escribe la solicitud en el pipe

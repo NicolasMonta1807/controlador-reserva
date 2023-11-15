@@ -48,6 +48,8 @@ int main(int argc, char *argv[])
     }
   }
 
+  // Inicio hilos
+
   int currentAgents = 0;
   struct AgentData *agents = malloc(sizeof(struct AgentData) * MAX_AGENTS);
   struct AgentData agent;
@@ -55,12 +57,15 @@ int main(int argc, char *argv[])
   while (true)
   {
     read(fd_escritura, &agent, sizeof(agent));
-    printf("Nuevo agente: %s - %s\n", agent.agentName, agent.agentPipe);
-    int fd_privado = open(agent.agentName, O_RDWR);
+    agent.id = currentAgents;
+    agents[currentAgents] = agent;
+    // printf("Nuevo agente: %s - %s\n", agents[currentAgents].agentName, agents[currentAgents].agentPipe);
+    int fd_privado = open(agents[currentAgents].agentName, O_RDWR);
     write(fd_privado, &horaActual, sizeof(horaActual));
-    sleep(10);
+    sleep(0.5);
     char *answer = "yes sir";
     write(fd_privado, answer, sizeof(answer));
+    currentAgents++;
   }
 
   // Cerramos el pipe
