@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdbool.h>
-
+#include <semaphore.h>
 #include "Datatypes.h"
 #include "AgentArguments.h"
 
@@ -39,11 +39,27 @@ int main(int argc, char *argv[])
     printf("El archivo de solicitudes no existe.\n");
   }
 
+  sem_t *mutex; // Declarar el semáforo
+
+  // Abrir el semáforo existente
+  char sem_name[270];
+  sprintf(sem_name, "_semaphore%s", arguments.agentName);
+  mutex = sem_open(sem_name, O_CREAT, 0666, 1);
+
+  if (mutex == SEM_FAILED)
+  {
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
+
   struct AgentData agent;
   strcpy(agent.agentName, arguments.agentName);
-  strcpy(agent.agentPipe, arguments.agentName);
+  char nombrePipe[255];
+  strcpy(nombrePipe, agent.agentName);
+  char sufix[270];
+  sprintf(sufix, "req%s", arguments.agentName);
+  strcpy(agent.agentPipe, sufix);
   agent.id = 0;
-
   int fd_privado = open(arguments.agentName, O_RDWR);
 
   // Comprobamos si se ha abierto correctamente
@@ -59,14 +75,16 @@ int main(int argc, char *argv[])
 
   // Escribe el agente en el pipe
   write(fd_escritura, &agent, sizeof(agent));
-  int horaActual = 0;
-  read(fd_privado, &horaActual, sizeof(horaActual));
+  close(fd_escritura);
+  int horaActual = 10;
+  if (read(fd_privado, &horaActual, sizeof(horaActual)) > 0)
+    printf(" %d\n", horaActual);
   struct Family *familia = malloc(sizeof(struct Family));
   char line[256];
-  int fd_privado2 = open("prueba", O_RDONLY);
+  int fd_privado2 = open(agent.agentPipe, O_RDONLY);
   if (fd_privado2 < 0)
   {
-    fd_privado2 = mkfifo("prueba", 0666);
+    fd_privado2 = mkfifo(agent.agentPipe, 0666);
     if (fd_privado2 < 0)
     {
       perror("Error al abrir el pipe!!!");
@@ -87,11 +105,13 @@ int main(int argc, char *argv[])
     // Formatea la solicitud
     printf("Nueva Familia: %s - %d\n", familia->name, familia->quantity);
     write(fd_privado, familia, sizeof(familia));
+    sem_post(mutex);
     // Escribe la solicitud en el pipe
 
     // Espera a que el proceso del controlador termine de procesar la solicitud
 
     // Lee la respuesta del pipe
+    sem_wait(mutex);
     char respuesta[256];
     if (read(fd_privado2, respuesta, sizeof(respuesta)) == -1)
     {
@@ -105,7 +125,7 @@ int main(int argc, char *argv[])
     // Espera 2 segundos antes de procesar la siguiente solicitud
     sleep(2);
   }
-
+  sem_close(mutex);
   printf("Agente: %s Termina\n", agent.agentName);
   // Cerramos el pipe
   // close(fd_escritura);

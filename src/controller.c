@@ -14,7 +14,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <pthread.h>
-
+#include <semaphore.h>
 #include "Datatypes.h"
 #include "ControllerArguments.h"
 
@@ -25,25 +25,42 @@ struct Arguments
   struct AgentData agent;
 };
 
-int horaActual = 8;
 int currentAgents = 0;
 
 void *requests(void *arg)
 {
   struct Arguments *args = (struct Arguments *)arg;
+  sem_t *mutex; // Declarar el semáforo
+
+  // Abrir el semáforo existente
+  char sem_name[270];
+  sprintf(sem_name, "_semaphore%s", args->agent.agentName);
+  mutex = sem_open(sem_name, O_CREAT, 0666, 1);
+
+  if (mutex == SEM_FAILED)
+  {
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
   char *pipe_id = args->agent.agentName;
+  printf("%s\n", args->agent.agentPipe);
   struct Family familia;
   char *answer = "yes sir";
   int fd_privado = open(pipe_id, O_RDWR);
-  int fd_privado2 = open("prueba", O_WRONLY);
-  while (true)
+  int fd_privado2 = open(args->agent.agentPipe, O_WRONLY);
+  int i = 0;
+  while (i < 3)
   {
+    sem_wait(mutex);
     if (read(fd_privado, &familia, sizeof(struct Family)) > 0)
     {
       printf("Nueva Familia: %s\n", familia.name);
       write(fd_privado2, args->agent.agentName, sizeof(args->agent.agentName));
+      sem_post(mutex);
+      i++;
     }
   }
+  sem_close(mutex);
 }
 
 int main(int argc, char *argv[])
@@ -71,8 +88,10 @@ int main(int argc, char *argv[])
       return -1;
     }
   }
+
   struct Arguments *args = malloc(sizeof(struct Arguments));
   struct AgentData agent;
+  int horaActual = 8;
 
   while (true) // AQUÍ DEBERÍAN SER LA SEÑALES
   {
@@ -84,11 +103,13 @@ int main(int argc, char *argv[])
       int fd_privado = open(agent.agentName, O_RDWR);
       write(fd_privado, &horaActual, sizeof(horaActual));
       pthread_create(&threads[0], NULL, (void *)requests, args);
+      pthread_detach(threads[0]);
+      // getchar();
       currentAgents++;
     }
   }
-  pthread_join(threads[0], NULL);
-  // Cerramos el pipe
+  // pthread_join(threads[0], NULL);
+  //   Cerramos el pipe
   close(fd_escritura);
 
   return 0;
