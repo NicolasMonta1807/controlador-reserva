@@ -22,17 +22,42 @@
 
 struct Arguments
 {
-  char *pipe_id;
-  struct AgentData *agents;
+  struct AgentData agent;
 };
 
+int horaActual = 8;
 int currentAgents = 0;
 
-void *awaitAgents(void *arg)
+void *requests(void *arg)
 {
   struct Arguments *args = (struct Arguments *)arg;
-  char *pipe_id = args->pipe_id;
-  struct AgentData *agents = args->agents;
+  char *pipe_id = args->agent.agentName;
+  struct Family familia;
+  char *answer = "yes sir";
+  int fd_privado = open(pipe_id, O_RDWR);
+  int fd_privado2 = open("prueba", O_WRONLY);
+  while (true)
+  {
+    if (read(fd_privado, &familia, sizeof(struct Family)) > 0)
+    {
+      printf("Nueva Familia: %s\n", familia.name);
+      write(fd_privado2, args->agent.agentName, sizeof(args->agent.agentName));
+    }
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  // Comprobamos el número de argumentos de entrada
+  struct arguments arguments;
+  init_arguments(argc, argv, &arguments);
+  // hilos por cada agente
+  pthread_t *threads = malloc(sizeof(pthread_t));
+
+  // Obtenemos el descriptor del pipe de comunicación
+  char *pipe_id = arguments.pipeName;
+
+  // Inicio hilos
 
   int fd_escritura = open(pipe_id, O_RDONLY);
 
@@ -43,68 +68,28 @@ void *awaitAgents(void *arg)
     if (fd_escritura < 0)
     {
       perror("Error al abrir el pipe!!!");
-      return NULL;
+      return -1;
     }
   }
-
+  struct Arguments *args = malloc(sizeof(struct Arguments));
   struct AgentData agent;
-  int horaActual = 7;
 
   while (true) // AQUÍ DEBERÍAN SER LA SEÑALES
   {
-    read(fd_escritura, &agent, sizeof(agent));
-    agent.id = currentAgents;
-    agents[currentAgents] = agent;
-    printf("Nuevo agente: %s - %s\n", agents[currentAgents].agentName, agents[currentAgents].agentPipe);
-    int fd_privado = open(agents[currentAgents].agentName, O_RDWR);
-    write(fd_privado, &horaActual, sizeof(horaActual));
-    sleep(0.5);
-    // currentAgents++;
+    if (read(fd_escritura, &agent, sizeof(agent)) > 0)
+    {
+      agent.id = currentAgents;
+      printf("Nuevo agente: %s - %s\n", agent.agentName, agent.agentPipe);
+      args->agent = agent;
+      int fd_privado = open(agent.agentName, O_RDWR);
+      write(fd_privado, &horaActual, sizeof(horaActual));
+      pthread_create(&threads[0], NULL, (void *)requests, args);
+      currentAgents++;
+    }
   }
-
+  pthread_join(threads[0], NULL);
   // Cerramos el pipe
   close(fd_escritura);
-}
-
-void *requests(void *arg)
-{
-  struct Arguments *args = (struct Arguments *)arg;
-  char *pipe_id = args->pipe_id;
-  struct AgentData *agents = args->agents;
-
-  while (true)
-  {
-    char *answer = "yes sir";
-    int fd_privado = open(agents[currentAgents].agentName, O_RDWR);
-    write(fd_privado, answer, sizeof(answer));
-  }
-}
-
-int main(int argc, char *argv[])
-{
-  // Comprobamos el número de argumentos de entrada
-  struct arguments arguments;
-  init_arguments(argc, argv, &arguments);
-
-  // Obtenemos el descriptor del pipe de comunicación
-  char *pipe_id = arguments.pipeName;
-
-  // Inicio hilos
-  struct AgentData *agents = malloc(sizeof(struct AgentData) * MAX_AGENTS);
-  pthread_t *threads = malloc(sizeof(pthread_t) * 2);
-
-  struct Arguments *args = malloc(sizeof(struct Arguments));
-  args->pipe_id = pipe_id;
-  args->agents = agents;
-
-  pthread_create(&threads[0], NULL, (void *)awaitAgents, args);
-  pthread_create(&threads[1], NULL, (void *)requests, args);
-
-  pthread_join(threads[0], NULL);
-  pthread_join(threads[1], NULL);
-
-  printf("Presiona Enter para finalizar el programa...\n");
-  getchar();
 
   return 0;
 }
