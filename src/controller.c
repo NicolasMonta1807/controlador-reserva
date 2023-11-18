@@ -33,18 +33,6 @@ int horaFinal = 0;
 int totalPeople = 0;
 struct Park park;
 struct Report report;
-void handler(int signum)
-{
-  if (signum == SIGALRM)
-  {
-    if (horaActual != horaFinal)
-    {
-      horaActual++;
-
-      alarm(secondsHour);
-    }
-  }
-}
 
 void init_park(struct Park *park, struct arguments *args)
 {
@@ -54,6 +42,7 @@ void init_park(struct Park *park, struct arguments *args)
   for (int i = park->startHour; i <= park->endHour; i++)
   {
     park->hours[i].reserved = 0;
+    park->hours[i].numFamilies = 0;
     park->hours[i].hour = i;
     park->hours[i].families = malloc(sizeof(struct Family) * MAX_FAMILIES);
   }
@@ -77,34 +66,37 @@ char *process_reservation(struct Park *park, struct Family family, struct Report
   {
     return "Error: No se ha podido asignar memoria al mensaje.\n";
   }
-  printf("hora fam: %d - hora park: %d", family.hourIn, park->endHour);
   if (family.hourIn > park->endHour)
   {
     report->num_denied++;
     return "Reserva negada por tarde.";
   }
-  else if ((family.quantity + report->num_people[family.hourIn]) > totalPeople)
-  {
-    report->num_denied++;
-    return "Reserva negada, supera la capacidad permitida.";
-  }
   else
   {
-    if (park->hours[family.hourIn].reserved + family.quantity <= MAX_FAMILIES)
+    if (park->hours[family.hourIn].reserved + family.quantity <= totalPeople && family.hourIn >= horaActual)
     {
       park->hours[family.hourIn].reserved += family.quantity;
+      park->hours[family.hourIn + 1].reserved += family.quantity;
+      park->hours[family.hourIn].families[park->hours[family.hourIn].numFamilies] = family;
+      park->hours[family.hourIn + 1].families[park->hours[family.hourIn + 1].numFamilies] = family;
+      park->hours[family.hourIn].numFamilies++;
       report->num_accepted++;
       report->num_people[family.hourIn] += family.quantity;
+      report->num_people[family.hourIn + 1] += family.quantity;
       message = "Reserva OK.";
       return message;
     }
     else
     {
-      for (int i = park->startHour; i <= park->endHour; i++)
+      for (int i = horaActual + 1; i < park->endHour; i++)
       {
-        if (park->hours[i].reserved + family.quantity <= MAX_FAMILIES)
+        if (park->hours[i].reserved + family.quantity <= totalPeople)
         {
           park->hours[i].reserved += family.quantity;
+          park->hours[i + 1].reserved += family.quantity;
+          park->hours[i].families[park->hours[i].numFamilies] = family;
+          park->hours[i + 1].families[park->hours[i + 1].numFamilies] = family;
+          park->hours[i].numFamilies++;
           report->num_rescheduled++;
           report->num_people[i] += family.quantity;
           int ret = sprintf(message, "Reserva garantizada para otras horas %d.", i);
@@ -124,6 +116,136 @@ char *process_reservation(struct Park *park, struct Family family, struct Report
   }
 }
 
+void print_report(struct Park *park, struct Report *reports)
+{
+  int max_people = reports->num_people[park->startHour];
+  int min_people = reports->num_people[park->endHour];
+
+  for (int i = park->startHour; i < park->endHour; i++)
+  {
+    if (reports->num_people[i] > max_people)
+    {
+      max_people = reports->num_people[i];
+    }
+    if (reports->num_people[i] < min_people)
+    {
+      min_people = reports->num_people[i];
+    }
+  }
+
+  // Imprimir la hora con mayor numero de personas
+  printf("Horas pico: ");
+  for (int i = park->startHour; i < park->endHour; i++)
+  {
+    if (reports->num_people[i] == max_people)
+    {
+      printf("%d ", i);
+    }
+  }
+  printf("\n");
+
+  // Imprimir la hora con menor numero de personas
+  printf("Horas con menor numero de personas: ");
+  for (int i = park->startHour; i < park->endHour; i++)
+  {
+    if (reports->num_people[i] == min_people)
+    {
+      printf("%d ", i);
+    }
+  }
+  printf("\n");
+
+  // Imprimir el numero de solicitudes aceptadas, negadas y reprogramadas
+  printf("Número de solicitudes negadas: %d\n", reports->num_denied);
+  printf("Número de solicitudes aceptadas en su hora: %d\n", reports->num_accepted);
+  printf("Número de solicitudes reprogramadas: %d\n", reports->num_rescheduled);
+}
+
+void calculateParkTraffic(struct Park *park, int *numPeopleEntering, int *numPeopleLeaving, int *numFamiliesIN, int *numFamiliesOUT, struct Family **familiesEntering, struct Family **familiesLeaving)
+{
+  // Inicializar las variables
+  *numPeopleEntering = 0;
+  *numPeopleLeaving = 0;
+  *numFamiliesIN = 0;
+  *numFamiliesOUT = 0;
+  *familiesEntering = NULL;
+  *familiesLeaving = NULL;
+
+  // Calcular el tráfico de personas que entran y salen del parque en la hora actual
+  for (int i = park->startHour; i <= park->endHour; i++)
+  {
+    int size = park->hours[i].numFamilies;
+    for (int j = 0; j < size; j++)
+    {
+      struct Family *family = &(park->hours[i].families[j]);
+      if (family->hourIn == horaActual)
+      {
+        (*numPeopleEntering) += family->quantity;
+        (*numFamiliesIN)++;
+        (*familiesEntering) = realloc(*familiesEntering, (*numFamiliesIN) * sizeof(struct Family));
+        (*familiesEntering)[(*numFamiliesIN) - 1] = *family;
+      }
+      // Asumiendo que la hora de salida se puede calcular
+      int exitHour = family->hourIn + 2; // Ajusta esto según sea necesario
+      if (exitHour == horaActual)
+      {
+        (*numPeopleLeaving) += family->quantity;
+        (*numFamiliesOUT)++;
+        (*familiesLeaving) = realloc(*familiesLeaving, (*numFamiliesOUT) * sizeof(struct Family));
+        (*familiesLeaving)[(*numFamiliesOUT) - 1] = *family;
+      }
+    }
+  }
+}
+
+void printParkTraffic()
+{
+
+  int numPeopleEntering = 0, numPeopleLeaving = 0, numFamiliesIN = 0, numFamiliesOUT = 0;
+  struct Family *familiesEntering = NULL, *familiesLeaving = NULL;
+
+  calculateParkTraffic(&park, &numPeopleEntering, &numPeopleLeaving, &numFamiliesIN, &numFamiliesOUT, &familiesEntering, &familiesLeaving);
+
+  printf("\nHora actual: %d\n", horaActual);
+  printf("Personas entrando al parque: %d\n", numPeopleEntering);
+  printf("Personas saliendo del parque: %d\n", numPeopleLeaving);
+
+  printf("Detalles de las familias entrando:\n");
+
+  for (int i = 0; i < numFamiliesIN; i++)
+  {
+    printf("Familia %d:\n", i + 1);
+    printf("Nombre: %s\n", familiesEntering[i].name);
+    printf("Número de miembros: %d\n", familiesEntering[i].quantity);
+  }
+
+  printf("Detalles de las familias saliendo:\n");
+  for (int i = 0; i < numFamiliesOUT; i++)
+  {
+    printf("Familia %d:\n", i + 1);
+    printf("Nombre: %s\n", familiesLeaving[i].name);
+    printf("Número de miembros: %d\n", familiesLeaving[i].quantity);
+  }
+
+  // Liberar la memoria asignada para los arrays de familias
+  free(familiesEntering);
+  free(familiesLeaving);
+}
+
+void handler(int signum)
+{
+  if (signum == SIGALRM)
+  {
+    if (horaActual != horaFinal)
+    {
+      horaActual++;
+      printParkTraffic();
+
+      alarm(secondsHour);
+    }
+  }
+}
+
 void *requests(void *arg)
 {
   struct Arguments *args = (struct Arguments *)arg;
@@ -131,7 +253,7 @@ void *requests(void *arg)
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem11%s", args->agent.agentName);
+  sprintf(sem_name, "_sem00%s", args->agent.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -151,8 +273,6 @@ void *requests(void *arg)
     sem_wait(mutex);
     if (read(fd_privado, &familia, sizeof(familia)) > 0)
     {
-      printf("Nueva Familia: %s\n", familia.name);
-      printf("Hora en la que quieren entrar: %d\n", familia.hourIn);
       char *message = process_reservation(&park, familia, &report);
       write(fd_privado2, message, 255);
       sem_post(mutex);
@@ -168,7 +288,7 @@ int main(int argc, char *argv[])
   struct arguments arguments;
   init_arguments(argc, argv, &arguments);
   // hilos por cada agente
-  pthread_t *threads = malloc(sizeof(pthread_t));
+  pthread_t *threads = malloc(sizeof(pthread_t) * MAX_AGENTS);
 
   // Obtenemos el descriptor del pipe de comunicación
   char *pipe_id = arguments.pipeName;
@@ -209,16 +329,16 @@ int main(int argc, char *argv[])
       args->agent = agent;
       int fd_privado = open(agent.agentName, O_RDWR);
       write(fd_privado, &horaActual, sizeof(horaActual));
-      pthread_create(&threads[0], NULL, (void *)requests, args);
-      pthread_detach(threads[0]);
+      pthread_create(&threads[currentAgents], NULL, (void *)requests, args);
+      pthread_detach(threads[currentAgents]);
       // getchar();
       currentAgents++;
     }
-    if (horaActual == horaFinal)
-      printf("Salí lo juro\n");
   }
   // pthread_join(threads[0], NULL);
   //   Cerramos el pipe
+  printf("\n\nReporte Final\n");
+  print_report(&park, &report);
   close(fd_escritura);
 
   return 0;

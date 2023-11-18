@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem11%s", arguments.agentName);
+  sprintf(sem_name, "_sem00%s", arguments.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
   // Escribe el agente en el pipe
   write(fd_escritura, &agent, sizeof(agent));
   close(fd_escritura);
-  int horaActual = 10;
+  int horaActual = 0;
   if (read(fd_privado, &horaActual, sizeof(horaActual)) > 0)
     printf(" %d\n", horaActual);
   struct Family *familia = malloc(sizeof(struct Family));

@@ -13,6 +13,7 @@ struct Hour
   int hour;
   int reserved;
   struct Family *families;
+  int numFamilies;
 };
 
 struct Family
