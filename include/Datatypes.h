@@ -1,5 +1,6 @@
 #define MAX_BUFFER 255
-
+#define HOURS 24
+#define MAX_FAMILIES 20
 struct AgentData
 {
   char agentName[MAX_BUFFER];
@@ -26,4 +27,12 @@ struct Park
   struct Hour *hours;
   int startHour;
   int endHour;
+};
+
+struct Report
+{
+  int num_people[HOURS];
+  int num_denied;
+  int num_accepted;
+  int num_rescheduled;
 };

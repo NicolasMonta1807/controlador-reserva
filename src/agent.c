@@ -15,6 +15,33 @@
 #include "Datatypes.h"
 #include "AgentArguments.h"
 
+int count_lines(char *filename)
+{
+  FILE *file = fopen(filename, "r");
+  if (file == NULL)
+  {
+    perror("Error al abrir el archivo");
+    return -1;
+  }
+
+  int count = 0;
+  int ch;
+  while ((ch = fgetc(file)) != EOF)
+  {
+    if (ch == '\n')
+    {
+      count++;
+    }
+  }
+  if (ch != EOF || count > 0)
+  {
+    count++;
+  }
+  printf("%d", count);
+  fclose(file);
+  return count;
+}
+
 int main(int argc, char *argv[])
 {
   // Comprobamos el número de argumentos de entrada
@@ -43,7 +70,7 @@ int main(int argc, char *argv[])
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_semaphore%s", arguments.agentName);
+  sprintf(sem_name, "_sem11%s", arguments.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -59,7 +86,7 @@ int main(int argc, char *argv[])
   char sufix[270];
   sprintf(sufix, "req%s", arguments.agentName);
   strcpy(agent.agentPipe, sufix);
-  agent.id = 0;
+  agent.id = count_lines(arguments.requestFile);
   int fd_privado = open(arguments.agentName, O_RDWR);
 
   // Comprobamos si se ha abierto correctamente
@@ -103,8 +130,8 @@ int main(int argc, char *argv[])
       continue;
 
     // Formatea la solicitud
-    printf("Nueva Familia: %s - %d\n", familia->name, familia->quantity);
-    write(fd_privado, familia, sizeof(familia));
+    printf("Nueva Familia: %s - %d - %d\n", familia->name, familia->quantity, familia->hourIn);
+    write(fd_privado, familia, sizeof(struct Family));
     sem_post(mutex);
     // Escribe la solicitud en el pipe
 
@@ -112,7 +139,7 @@ int main(int argc, char *argv[])
 
     // Lee la respuesta del pipe
     sem_wait(mutex);
-    char respuesta[256];
+    char respuesta[255];
     if (read(fd_privado2, respuesta, sizeof(respuesta)) == -1)
     {
       perror("read");
