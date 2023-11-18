@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 
   // Abrimos el pipe
   int fd_escritura = open(pipe_id, O_WRONLY);
+
   // Comprobamos si se ha abierto correctamente
   if (fd_escritura < 0)
   {
@@ -81,8 +82,7 @@ int main(int argc, char *argv[])
 
   struct AgentData agent;
   strcpy(agent.agentName, arguments.agentName);
-  char nombrePipe[255];
-  strcpy(nombrePipe, agent.agentName);
+
   char sufix[270];
   sprintf(sufix, "req%s", arguments.agentName);
   strcpy(agent.agentPipe, sufix);
@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
   // Escribe el agente en el pipe
   write(fd_escritura, &agent, sizeof(agent));
   close(fd_escritura);
+
   int horaActual = 0;
   if (read(fd_privado, &horaActual, sizeof(horaActual)) > 0)
     printf(" %d\n", horaActual);
@@ -152,10 +153,39 @@ int main(int argc, char *argv[])
     // Espera 2 segundos antes de procesar la siguiente solicitud
     sleep(2);
   }
-  sem_close(mutex);
-  printf("Agente: %s Termina\n", agent.agentName);
-  // Cerramos el pipe
-  // close(fd_escritura);
 
-  // return 0;
+  if (sem_close(mutex) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al cerrar el semáforo");
+    return 1;
+  }
+
+  if (sem_unlink(sem_name) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el semáforo");
+    return 1;
+  }
+
+  if (unlink(arguments.agentName) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el pipe");
+    return 1;
+  }
+
+  if (unlink(agent.agentPipe) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el pipe");
+    return 1;
+  }
+
+  printf("Agente: %s Termina\n", agent.agentName);
+
+  // Cerramos el pipe
+  // unlink(fd_escritura);
+
+  return 0;
 }

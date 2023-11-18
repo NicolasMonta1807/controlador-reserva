@@ -47,6 +47,7 @@ void init_park(struct Park *park, struct arguments *args)
     park->hours[i].families = malloc(sizeof(struct Family) * MAX_FAMILIES);
   }
 }
+
 void init_report(struct Report *report, struct Park *park)
 {
   report->num_denied = 0;
@@ -253,7 +254,7 @@ void *requests(void *arg)
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem00%s", args->agent.agentName);
+  sprintf(sem_name, "_sem69%s", args->agent.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -261,6 +262,7 @@ void *requests(void *arg)
     perror("sem_open");
     exit(EXIT_FAILURE);
   }
+
   char *pipe_id = args->agent.agentName;
   printf("%s\n", args->agent.agentPipe);
   struct Family familia;
@@ -279,7 +281,27 @@ void *requests(void *arg)
       i++;
     }
   }
-  sem_close(mutex);
+
+  if (sem_close(mutex) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al cerrar el semáforo");
+    return NULL;
+  }
+
+  // if (sem_unlink(sem_name) == -1)
+  // {
+  //   // Manejar el error, si es necesario
+  //   perror("Error al eliminar el semáforo");
+  //   return NULL;
+  // }
+
+  if (unlink(args->agent.agentPipe) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el pipe");
+    return NULL;
+  }
 }
 
 int main(int argc, char *argv[])
@@ -301,6 +323,7 @@ int main(int argc, char *argv[])
 
   init_park(&park, &arguments);
   init_report(&report, &park);
+
   int fd_escritura = open(pipe_id, O_RDONLY);
 
   // Comprobamos si se ha abierto correctamente
@@ -313,8 +336,8 @@ int main(int argc, char *argv[])
       return -1;
     }
   }
-  struct Arguments *args = malloc(sizeof(struct Arguments));
 
+  struct Arguments *args = malloc(sizeof(struct Arguments));
   struct AgentData agent;
 
   signal(SIGALRM, handler);
@@ -331,15 +354,21 @@ int main(int argc, char *argv[])
       write(fd_privado, &horaActual, sizeof(horaActual));
       pthread_create(&threads[currentAgents], NULL, (void *)requests, args);
       pthread_detach(threads[currentAgents]);
-      // getchar();
       currentAgents++;
     }
   }
-  // pthread_join(threads[0], NULL);
+
   //   Cerramos el pipe
   printf("\n\nReporte Final\n");
   print_report(&park, &report);
   close(fd_escritura);
+
+  if (unlink(pipe_id) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el pipe");
+    return 1;
+  }
 
   return 0;
 }
