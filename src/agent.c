@@ -66,11 +66,22 @@ int main(int argc, char *argv[])
     printf("El archivo de solicitudes no existe.\n");
   }
 
-  sem_t *mutex; // Declarar el semáforo
+  sem_t *agentSem;
+  char agentSem_name[270];
+  sprintf(agentSem_name, "_createSem5%s", arguments.agentName);
+  agentSem = sem_open(agentSem_name, O_CREAT, 0666, 1);
+
+  if (agentSem == SEM_FAILED)
+  {
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
+
+  sem_t *mutex; // Declarar el semáforo que tiene con el hilo
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem00%s", arguments.agentName);
+  sprintf(sem_name, "_sem004%s", arguments.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -87,8 +98,11 @@ int main(int argc, char *argv[])
   sprintf(sufix, "req%s", arguments.agentName);
   strcpy(agent.agentPipe, sufix);
   agent.id = count_lines(arguments.requestFile);
-  int fd_privado = open(arguments.agentName, O_RDWR);
 
+  // Escribe el agente en el pipe
+  write(fd_escritura, &agent, sizeof(agent));
+  close(fd_escritura);
+  int fd_privado = open(arguments.agentName, O_RDWR);
   // Comprobamos si se ha abierto correctamente
   if (fd_privado < 0)
   {
@@ -98,16 +112,20 @@ int main(int argc, char *argv[])
       perror("Error al abrir el pipe!!!");
       return -1;
     }
+    fd_privado = open(arguments.agentName, O_RDWR);
+    if (fd_privado < 0)
+    {
+      perror("Error al abrir el pipe después de la creación!!!");
+      return -1;
+    }
   }
-
-  // Escribe el agente en el pipe
-  write(fd_escritura, &agent, sizeof(agent));
-  close(fd_escritura);
+  sem_post(agentSem);
   int horaActual = 0;
   if (read(fd_privado, &horaActual, sizeof(horaActual)) > 0)
     printf(" %d\n", horaActual);
   struct Family *familia = malloc(sizeof(struct Family));
   char line[256];
+  // sem_post(mutex);
   int fd_privado2 = open(agent.agentPipe, O_RDONLY);
   if (fd_privado2 < 0)
   {
@@ -117,7 +135,14 @@ int main(int argc, char *argv[])
       perror("Error al abrir el pipe!!!");
       return -1;
     }
+    fd_privado2 = open(agent.agentPipe, O_RDONLY);
+    if (fd_privado2 < 0)
+    {
+      perror("Error al abrir el pipe después de la creación!!!");
+      return -1;
+    }
   }
+  // sem_wait(mutex);
   while (fgets(line, sizeof(line), file))
   {
     // Divide la línea en tokens separados por comas
@@ -148,11 +173,16 @@ int main(int argc, char *argv[])
 
     // Imprime la respuesta
     printf("Respuesta: %s\n", respuesta);
-
-    // Espera 2 segundos antes de procesar la siguiente solicitud
+    // write(fd_privado, &bandera, sizeof(bandera));
+    //  Espera 2 segundos antes de procesar la siguiente solicitud
     sleep(2);
   }
+  sem_post(mutex);
+  // write(fd_privado, &bandera, sizeof(bandera));
+  sem_close(agentSem);
   sem_close(mutex);
+  close(fd_privado);
+  close(fd_privado2);
   printf("Agente: %s Termina\n", agent.agentName);
   // Cerramos el pipe
   // close(fd_escritura);

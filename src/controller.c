@@ -253,7 +253,7 @@ void *requests(void *arg)
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem00%s", args->agent.agentName);
+  sprintf(sem_name, "_sem004%s", args->agent.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -266,9 +266,11 @@ void *requests(void *arg)
   struct Family familia;
   char *answer;
   int fd_privado = open(pipe_id, O_RDWR);
+  // sem_wait(mutex);
   int fd_privado2 = open(args->agent.agentPipe, O_WRONLY);
-  int i = 0;
-  while (i < args->agent.id)
+  // sem_post(mutex);
+  int i = 1;
+  while (i == 1)
   {
     sem_wait(mutex);
     if (read(fd_privado, &familia, sizeof(familia)) > 0)
@@ -276,10 +278,14 @@ void *requests(void *arg)
       char *message = process_reservation(&park, familia, &report);
       write(fd_privado2, message, 255);
       sem_post(mutex);
-      i++;
     }
+    else
+      i = 0;
+    // read(fd_privado, &i, sizeof(i));
   }
   sem_close(mutex);
+  close(fd_privado);
+  close(fd_privado2);
 }
 
 int main(int argc, char *argv[])
@@ -312,7 +318,15 @@ int main(int argc, char *argv[])
       perror("Error al abrir el pipe!!!");
       return -1;
     }
+
+    fd_escritura = open(pipe_id, O_RDONLY);
+    if (fd_escritura < 0)
+    {
+      perror("Error al abrir el pipe después de la creación!!!");
+      return -1;
+    }
   }
+
   struct Arguments *args = malloc(sizeof(struct Arguments));
 
   struct AgentData agent;
@@ -327,8 +341,23 @@ int main(int argc, char *argv[])
     {
       printf("Nuevo agente: %s - %s\n", agent.agentName, agent.agentPipe);
       args->agent = agent;
+      // Creación de semáforo de creación del pipe privado
+      sem_t *agentSem;
+      char agentSem_name[270];
+      sprintf(agentSem_name, "_createSem5%s", args->agent.agentName);
+      agentSem = sem_open(agentSem_name, O_CREAT, 0666, 1);
+
+      if (agentSem == SEM_FAILED)
+      {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+      }
+      sem_wait(agentSem);
+      sem_close(agentSem);
+      // Espera para abrir el pipe
       int fd_privado = open(agent.agentName, O_RDWR);
       write(fd_privado, &horaActual, sizeof(horaActual));
+      close(fd_privado);
       pthread_create(&threads[currentAgents], NULL, (void *)requests, args);
       pthread_detach(threads[currentAgents]);
       // getchar();
