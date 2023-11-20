@@ -6,7 +6,7 @@ PROGS = controller agent
 all: $(PROGS)
 
 controller:
-	$(GCC) $(CFLAGS) -o ./bin/controller ./src/controller.c
+	$(GCC) $(CFLAGS) -g -o ./bin/controller ./src/controller.c
 
 agent:
 	$(GCC) $(CFLAGS) -o ./bin/agent ./src/agent.c
