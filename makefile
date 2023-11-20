@@ -2,11 +2,15 @@ GCC=gcc
 CFLAGS= -I ./include -lpthread ./include/*.c
 
 PROGS = controller agent
+BINDIR = ./bin
 
 all: $(PROGS)
 
-controller:
-	$(GCC) $(CFLAGS) -g -o ./bin/controller ./src/controller.c
+$(BINDIR):
+	mkdir -p $(BINDIR)
 
-agent:
-	$(GCC) $(CFLAGS) -o ./bin/agent ./src/agent.c
+controller: $(BINDIR)
+	$(GCC) $(CFLAGS) -g -o $(BINDIR)/controller ./src/controller.c
+
+agent: $(BINDIR)
+	$(GCC) $(CFLAGS) -o $(BINDIR)/agent ./src/agent.c
