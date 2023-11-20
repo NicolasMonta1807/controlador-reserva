@@ -92,6 +92,7 @@ char *process_reservation(struct Park *park, struct Family family, struct Report
       {
         if (park->hours[i].reserved + family.quantity <= totalPeople)
         {
+          family.hourIn = i;
           park->hours[i].reserved += family.quantity;
           park->hours[i + 1].reserved += family.quantity;
           park->hours[i].families[park->hours[i].numFamilies] = family;
@@ -133,8 +134,9 @@ void print_report(struct Park *park, struct Report *reports)
     }
   }
 
+  printf("\n---------------------------------------------");
   // Imprimir la hora con mayor numero de personas
-  printf("Horas pico: ");
+  printf("\nHoras pico: ");
   for (int i = park->startHour; i < park->endHour; i++)
   {
     if (reports->num_people[i] == max_people)
@@ -205,12 +207,12 @@ void printParkTraffic()
   struct Family *familiesEntering = NULL, *familiesLeaving = NULL;
 
   calculateParkTraffic(&park, &numPeopleEntering, &numPeopleLeaving, &numFamiliesIN, &numFamiliesOUT, &familiesEntering, &familiesLeaving);
-
+  printf("\n---------------------------------------------");
   printf("\nHora actual: %d\n", horaActual);
   printf("Personas entrando al parque: %d\n", numPeopleEntering);
   printf("Personas saliendo del parque: %d\n", numPeopleLeaving);
 
-  printf("Detalles de las familias entrando:\n");
+  printf("\nDetalles de las familias entrando:\n");
 
   for (int i = 0; i < numFamiliesIN; i++)
   {
@@ -219,7 +221,7 @@ void printParkTraffic()
     printf("Número de miembros: %d\n", familiesEntering[i].quantity);
   }
 
-  printf("Detalles de las familias saliendo:\n");
+  printf("\nDetalles de las familias saliendo:\n");
   for (int i = 0; i < numFamiliesOUT; i++)
   {
     printf("Familia %d:\n", i + 1);
@@ -253,7 +255,7 @@ void *requests(void *arg)
 
   // Abrir el semáforo existente
   char sem_name[270];
-  sprintf(sem_name, "_sem004%s", args->agent.agentName);
+  sprintf(sem_name, "semaforoHilo%s", args->agent.agentName);
   mutex = sem_open(sem_name, O_CREAT, 0666, 1);
 
   if (mutex == SEM_FAILED)
@@ -266,24 +268,27 @@ void *requests(void *arg)
   struct Family familia;
   char *answer;
   int fd_privado = open(pipe_id, O_RDWR);
-  // sem_wait(mutex);
+
   int fd_privado2 = open(args->agent.agentPipe, O_WRONLY);
-  // sem_post(mutex);
+
   int i = 1;
   while (i == 1)
   {
     sem_wait(mutex);
     if (read(fd_privado, &familia, sizeof(familia)) > 0)
     {
+
       char *message = process_reservation(&park, familia, &report);
       write(fd_privado2, message, 255);
       sem_post(mutex);
     }
     else
+    {
       i = 0;
-    // read(fd_privado, &i, sizeof(i));
+    }
   }
   sem_close(mutex);
+  sem_unlink(sem_name);
   close(fd_privado);
   close(fd_privado2);
 }
@@ -341,34 +346,28 @@ int main(int argc, char *argv[])
     {
       printf("Nuevo agente: %s - %s\n", agent.agentName, agent.agentPipe);
       args->agent = agent;
-      // Creación de semáforo de creación del pipe privado
-      sem_t *agentSem;
-      char agentSem_name[270];
-      sprintf(agentSem_name, "_createSem5%s", args->agent.agentName);
-      agentSem = sem_open(agentSem_name, O_CREAT, 0666, 1);
 
-      if (agentSem == SEM_FAILED)
-      {
-        perror("sem_open");
-        exit(EXIT_FAILURE);
-      }
-      sem_wait(agentSem);
-      sem_close(agentSem);
-      // Espera para abrir el pipe
       int fd_privado = open(agent.agentName, O_RDWR);
+      if (fd_privado < 0)
+      {
+        perror("Error al abrir el pipe después de la creación!!!");
+        return -1;
+      }
+
       write(fd_privado, &horaActual, sizeof(horaActual));
+
       close(fd_privado);
       pthread_create(&threads[currentAgents], NULL, (void *)requests, args);
       pthread_detach(threads[currentAgents]);
-      // getchar();
+
       currentAgents++;
     }
   }
-  // pthread_join(threads[0], NULL);
   //   Cerramos el pipe
   printf("\n\nReporte Final\n");
   print_report(&park, &report);
   close(fd_escritura);
+  unlink(pipe_id);
 
   return 0;
 }
