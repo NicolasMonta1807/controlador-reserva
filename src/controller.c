@@ -47,6 +47,7 @@ void init_park(struct Park *park, struct arguments *args)
     park->hours[i].families = malloc(sizeof(struct Family) * MAX_FAMILIES);
   }
 }
+
 void init_report(struct Report *report, struct Park *park)
 {
   report->num_denied = 0;
@@ -263,6 +264,7 @@ void *requests(void *arg)
     perror("sem_open");
     exit(EXIT_FAILURE);
   }
+
   char *pipe_id = args->agent.agentName;
   printf("%s\n", args->agent.agentPipe);
   struct Family familia;
@@ -312,6 +314,7 @@ int main(int argc, char *argv[])
 
   init_park(&park, &arguments);
   init_report(&report, &park);
+
   int fd_escritura = open(pipe_id, O_RDONLY);
 
   // Comprobamos si se ha abierto correctamente
@@ -334,6 +337,7 @@ int main(int argc, char *argv[])
 
   struct Arguments *args = malloc(sizeof(struct Arguments));
 
+  struct Arguments *args = malloc(sizeof(struct Arguments));
   struct AgentData agent;
 
   signal(SIGALRM, handler);
@@ -368,6 +372,13 @@ int main(int argc, char *argv[])
   print_report(&park, &report);
   close(fd_escritura);
   unlink(pipe_id);
+
+  if (unlink(pipe_id) == -1)
+  {
+    // Manejar el error, si es necesario
+    perror("Error al eliminar el pipe");
+    return 1;
+  }
 
   return 0;
 }
